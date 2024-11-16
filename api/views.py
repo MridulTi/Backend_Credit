@@ -8,7 +8,7 @@ import uuid
 from .models import CustomerData, LoanData
 from .serializer import CustomerSerializer, LoanSerializer
 from .tasks import import_customer_data,import_loan_data
-
+import random
 
 def index(request):
     import_customer_data()
@@ -35,20 +35,26 @@ class CustomerViewSet(viewsets.ModelViewSet):
         months = 12  # Example: compound interest over 1 year
         compounded_limit = approved_limit * ((1 + interest_rate) ** months)
         
+        while True:
+            customer_id = str(random.randint(10, 9999)) 
+            if not CustomerData.objects.filter(customer_id=customer_id).exists():
+                break
+
         customer = CustomerData.objects.create(
+            customer_id=customer_id,
             first_name=first_name,
             last_name=last_name,
             age=age,
-            monthly_income=monthly_income,
+            monthly_salary=monthly_income,
             phone_number=phone_number,
             approved_limit=round(compounded_limit)
         )
         
         response_data = {
-            "customer_id": customer.id,
+            "customer_id": customer.customer_id,
             "name": f"{customer.first_name} {customer.last_name}",
             "age": customer.age,
-            "monthly_income": customer.monthly_income,
+            "monthly_income": customer.monthly_salary,
             "approved_limit": customer.approved_limit,
             "phone_number": customer.phone_number,
         }
@@ -67,10 +73,10 @@ class LoanViewSet(viewsets.ModelViewSet):
         tenure = request.data.get('tenure')
 
         customer = get_object_or_404(CustomerData, id=customer_id)
-        monthly_income = customer.monthly_income
+        monthly_income = customer.monthly_salary
         approved_limit = customer.approved_limit
 
-        credit_score = self.calculate_credit_score(customer_id, approved_limit)
+        credit_score = LoanData.calculate_credit_score(customer_id)
         approval = False
         corrected_interest_rate = requested_interest_rate
         
@@ -85,10 +91,10 @@ class LoanViewSet(viewsets.ModelViewSet):
         elif credit_score <= 10:
             approval = False
         
-        total_current_emis = sum(loan.emi for loan in LoanData.objects.filter(customer_id=customer_id))
-        monthly_installment = self.calculate_monthly_installment(loan_amount, corrected_interest_rate, tenure)
+        total_current_emis = sum(loan.emis_paid_on_time for loan in LoanData.objects.filter(customer_id=customer_id))
+        monthly_installment = calculate_monthly_installment(loan_amount, corrected_interest_rate, tenure)
         
-        if total_current_emis + monthly_installment > 0.5 * monthly_income:
+        if total_current_emis + monthly_installment > 0.5 * float(monthly_income):
             approval = False
         
         response_data = {
@@ -109,7 +115,7 @@ class LoanViewSet(viewsets.ModelViewSet):
         tenure = request.data.get('tenure')
 
         customer = get_object_or_404(CustomerData, id=customer_id)
-        approved, corrected_interest_rate, message = self.check_eligibility_logic(customer, loan_amount, requested_interest_rate, tenure)
+        approved, corrected_interest_rate, message = check_eligibility_logic(customer, loan_amount, requested_interest_rate, tenure)
         
         if not approved:
             return Response({
@@ -120,7 +126,7 @@ class LoanViewSet(viewsets.ModelViewSet):
                 "monthly_installment": None
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        monthly_installment = self.calculate_monthly_installment(loan_amount, corrected_interest_rate, tenure)
+        monthly_installment = calculate_monthly_installment(loan_amount, corrected_interest_rate, tenure)
         loan_id = str(uuid.uuid4())[:20]
         start_date = timezone.now().date()
         end_date = start_date.replace(year=start_date.year + tenure // 12, month=start_date.month + tenure % 12)
@@ -184,34 +190,15 @@ class LoanViewSet(viewsets.ModelViewSet):
         return Response(response_data, status=status.HTTP_200_OK)
 
 
-def calculate_credit_score(self, customer_id, approved_limit):
-    loan_data = LoanData.objects.filter(customer_id=customer_id)
-    
-    if not loan_data.exists():
-        return 0
-    
-    past_loans_on_time = loan_data.filter(on_time_payment=True).count()
-    total_loans = loan_data.count()
-    current_year_loans = loan_data.filter(year=timezone.now().year).count()
-    loan_volume = sum(loan.loan_volume for loan in loan_data)
-    
-    credit_score = (past_loans_on_time / total_loans) * 40
-    credit_score += min(total_loans, 10) * 10
-    credit_score += min(current_year_loans, 5) * 10
-    credit_score += min(loan_volume / approved_limit, 1) * 40
-    
-    if loan_volume > approved_limit:
-        credit_score = 0
-    
-    return credit_score
 
-def calculate_monthly_installment(self, loan_amount, interest_rate, tenure):
+
+def calculate_monthly_installment(loan_amount, interest_rate, tenure):
     monthly_interest_rate = interest_rate / 12 / 100
     monthly_installment = loan_amount * (monthly_interest_rate * (1 + monthly_interest_rate) ** tenure) / ((1 + monthly_interest_rate) ** tenure - 1)
-    return monthly_installment
+    return round(monthly_installment,2)
 
-def check_eligibility_logic(self, customer, loan_amount, interest_rate, tenure):
-    credit_score = self.calculate_credit_score(customer.id, customer.approved_limit)
+def check_eligibility_logic(customer, loan_amount, interest_rate, tenure):
+    credit_score = LoanData.calculate_credit_score(customer.id)
     approved_limit = customer.approved_limit
     
     if credit_score > 50:
@@ -228,9 +215,9 @@ def check_eligibility_logic(self, customer, loan_amount, interest_rate, tenure):
         return approved, None, "Loan not approved due to low credit score."
     
     total_current_emis = sum(loan.monthly_repayment for loan in customer.loans.all())
-    monthly_installment = self.calculate_monthly_installment(loan_amount, corrected_interest_rate, tenure)
+    monthly_installment = calculate_monthly_installment(loan_amount, corrected_interest_rate, tenure)
     
-    if total_current_emis + monthly_installment > 0.5 * customer.monthly_income:
+    if float(total_current_emis) + monthly_installment > 0.5 * float(customer.monthly_salary):
         return False, corrected_interest_rate, "Loan not approved: EMIs exceed 50% of monthly income."
     
     return approved, corrected_interest_rate, ""
