@@ -127,9 +127,14 @@ class LoanViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         monthly_installment = calculate_monthly_installment(loan_amount, corrected_interest_rate, tenure)
-        loan_id = str(uuid.uuid4())[:20]
+        while True:
+            loan_id = str(random.randint(10, 9999)) 
+            if not LoanData.objects.filter(loan_id=customer_id).exists():
+                break
         start_date = timezone.now().date()
-        end_date = start_date.replace(year=start_date.year + tenure // 12, month=start_date.month + tenure % 12)
+        new_year = start_date.year + (start_date.month + tenure - 1) // 12
+        new_month = (start_date.month + tenure - 1) % 12 + 1
+        end_date = start_date.replace(year=new_year, month=new_month)
         
         loan = LoanData.objects.create(
             customer=customer,
