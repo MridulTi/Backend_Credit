@@ -18,6 +18,10 @@ This project is a web application built with [Your Framework/Language] and uses 
 | `/api/loan/view_loan_by_loan_id`    | GET         | Fetches details of a specific loan by loan ID        |
 
 ```
+### Demo Video
+
+https://github.com/user-attachments/assets/4d22fe2d-59ac-40b6-a5c6-30aa2717e7ff
+
 ---
 
 ### **How to Run the Project**
