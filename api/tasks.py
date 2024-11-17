@@ -1,26 +1,25 @@
 import pandas as pd
-from .models import CustomerData,LoanData  # Replace with the correct model import
+from .models import CustomerData,LoanData
 from background_task import background
 
 @background(schedule=10)
 def import_customer_data():
     print("INSIDE CUSTOMER DATA")
 
-    # Load customer data from the Excel file
+   
     customer_data = pd.read_excel('path/to/customer_data.xlsx')
 
-    # Iterate over each row in the DataFrame
+    
     for _, row in customer_data.iterrows():
-        # Accessing data from row (which is a pandas Series)
         CustomerData.objects.update_or_create(
-            customer_id=row['Customer ID'],  # Match exact column name
+            customer_id=row['Customer ID'],
             defaults={
-                'first_name': row['First Name'],          # Match exact column name
+                'first_name': row['First Name'],
                 'last_name': row['Last Name'], 
-                'age':row['Age'],        # Match exact column name
-                'phone_number': row.get('Phone Number'),  # Match exact column name
-                'monthly_salary': row['Monthly Salary'],  # Match exact column name
-                'approved_limit': row['Approved Limit'],  # Match exact column name
+                'age':row['Age'],
+                'phone_number': row.get('Phone Number'),
+                'monthly_salary': row['Monthly Salary'],
+                'approved_limit': row['Approved Limit'],
             }
         )
 

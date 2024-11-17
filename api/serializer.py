@@ -8,7 +8,6 @@ class CustomerSerializer(serializers.ModelSerializer):
 
 
 class LoanSerializer(serializers.ModelSerializer):
-    # Nested serializer to include customer details in loan data
     customer_id = serializers.CharField(source='customer.customer_id', read_only=True)  # Include customer ID in loan data
 
     class Meta:
