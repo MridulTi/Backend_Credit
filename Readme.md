@@ -20,7 +20,10 @@ This project is a web application built with [Your Framework/Language] and uses 
 ```
 ### Demo Video
 
-https://github.com/user-attachments/assets/4d22fe2d-59ac-40b6-a5c6-30aa2717e7ff
+
+https://github.com/user-attachments/assets/aff7ac05-a300-47bf-857d-c0ea3187f8d5
+
+
 
 ---
 
